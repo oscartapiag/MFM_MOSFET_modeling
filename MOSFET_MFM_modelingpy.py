@@ -11,7 +11,7 @@ import scipy.signal
 np.random.seed(1000000)
 
 path = "./plots/test"
-iter = 9
+iter = 0
 
 #Fundamental Constants
 q = 1.602177e-19           #Charge of electron in C
@@ -23,8 +23,29 @@ T = 300                    #absolute temperature in K
 n_i = 1e10*1e6             # intrinsic carrier concentration in m^-3
 N_A = 2e17*1e6             # Acceptor concentration in m^-3
 N_D = 0                    # Donor concentration in m^-3
-mu_n = 0.03 #10*1e-4             # electron mobility in m^2/Vs
+mu_n = 10*1e-4             # electron mobility in m^2/Vs
 eps_s = e0*11.9            # Permittivitsy of silicon in As/Vm
+
+#MOSFET parameters
+L = 1e-6                 # Gate length in m
+W = 1e-6                   # Gate width in m
+EOT = 1e-9                 # Equivalent gate oxide thickness in m
+VFB = -0.3                 # Flatband voltage in V
+VDS = 0.05                 # Drain-Source voltage in V
+iG0 = 10e4                 # MOS leakage current in A/m2 at VG = 1 V
+
+#MFM parameters
+A_MFM = (1e-6)**2          # Total MFM capacitor area in m^s2
+d = 4.5e-9                 # Ferroelectric thickness in m
+Pr = 0.025                 # Remanent polarization in C/m2
+Ec = 0.9e8                 # Coercive field in V/m
+s = 0.2                     # Grain variation sigma/mu in %
+rho_0 = 400                # Single domain internal resistance in Ohm m
+iL0 = 1.8e3                # MFM leakage current at VF = 0V in A/m2
+VL0 = 0.5                  # MFM leakage normalization voltage in V 
+Psign = -1                 # Initial polarization direction
+N = 200                    # Number of grains
+A = A_MFM/N                # Area of each grain in m^2
 
 Idatadf = pd.read_csv("_10x10um_cell3-13_IgVg_1e0.csv", header = 256)
 keys = [k for k in Idatadf]
@@ -33,6 +54,7 @@ Idata = IGdatadf*1e4*3
 VG = np.array([Idatadf[keys[1]]])
 VG.shape = (302,)
 
+
 K, J = 10, 10
 IDmean1 = np.zeros((K,J), dtype=np.longdouble)
 IDmean2 = np.zeros((K,J), dtype=np.longdouble)
@@ -40,28 +62,6 @@ Qfinal1 = np.zeros((K,J), dtype=np.longdouble)
 Qfinal2 = np.zeros((K,J), dtype=np.longdouble)
 V_read = np.zeros((K,1), dtype=np.longdouble)
 T_read = np.zeros((J,1), dtype=np.longdouble)
-
-
-#MOSFET parameters
-L = 1e-6                 # Gate length in m
-W = 1e-6                   # Gate width in m
-EOT = 1e-9                 # Equivalent gate oxide thickness in m
-VFB = -0.3                 # Flatband voltage in V
-VDS = 0.05                 # Drain-Source voltage in V
-iG0 = 1e4                 # MOS leakage current in A/m2 at VG = 1 V
-
-#MFM parameters
-A_MFM = (1e-6)**2          # Total MFM capacitor area in m^s2
-d = 4.5e-9                 # Ferroelectric thickness in m
-Pr = 0.025                 # Remanent polarization in C/m2
-Ec = 0.9e8                 # Coercive field in V/m
-s = 0.2                    # Grain variation sigma/mu in %
-rho_0 = 400                # Single domain internal resistance in Ohm m
-iL0 = 1.8e3                # MFM leakage current at VF = 0V in A/m2
-VL0 = 0.5                  # MFM leakage normalization voltage in V 
-Psign = +1                 # Initial polarization direction
-N = 200                    # Number of grains
-A = A_MFM/N                # Area of each grain in m^2
 
 #Grain parameter mean values 
 mu_rho = np.ones((1,N))*rho_0*d/A_MFM*N                  #Internal resistance in Ohm
@@ -88,6 +88,7 @@ a111 = np.abs(np.random.normal(mu_a111,sigma_a111))
 alpha = d*a1/A              #1st Landau constant in V/C
 beta  = d*a11/(A**3)        #2nd Landau constant in V/C^3
 gamma = d*a111/(A**5)       #3rd Landau constant in V/C^5
+
 
 for k in range(0, K):
     print(k)
@@ -184,13 +185,13 @@ for k in range(0, K):
 
 
         #Reference semiconductor charge vs. surface potential
-        Psi_S = np.arange(-0.4, 1.7 + 0.001, 0.001)                #Semiconductor surface potential in V
+        Psi_S = np.arange(-2, 2 + 0.001, 0.001)                #Semiconductor surface potential in V
         F = np.sqrt(np.abs((np.exp(-b*Psi_S)+b*Psi_S-1)+n_p0/p_p0*np.exp(-b*VDS)*(np.exp(b*Psi_S)-b*Psi_S*np.exp(b*VDS)-1)))*np.sign(Psi_S)
         Qs = np.real(np.sqrt(2)*eps_s/b/L_D*F)       # Total charge at the surface of the semiconductor in C/m^2
         Vox = Qs/Cox                           # Voltage drop across the gate oxide in V
         Qp = (Psi_S+Vox)*Cp                    # Parasitic charge parallel to Gate capacitance in C
         Qps = Qp + Qs*A_MOS                    # Sum of parasitic and Gate charge in C
-        C_ox = np.diff(Qs)/np.diff(Psi_S+Vox+VFB)   # Theoritcial Gate capacitance in F/m2
+        C_ox = np.diff(Qs)/np.diff(Psi_S+Vox+VFB)   # Theoretical Gate capacitance in F/m2
 
 
 
@@ -210,7 +211,7 @@ for k in range(0, K):
         # Initial charge conditions
         Q0 = np.sqrt(-alpha/beta/2)
         QF[0,:] = Psign*Q0
-        QS[0] = A_MOS*np.real(np.sqrt(2)*eps_s/b/L_D*np.sqrt((np.exp(-b*0)+b*0-1)+n_p0/p_p0*np.exp(-b*VDS)*(np.exp(b*0)-b*0*np.exp(b*VDS)-1))*np.sign(0))
+        QS[0] = A_MOS*np.real(np.sqrt(2)*eps_s/b/L_D*np.sqrt((np.exp(-b*0)+b*0-1)+n_p0/p_p0*np.exp(-b*VDS)*(np.exp(b*0)-b*0*np.exp(b*VDS)-1)))
         QFall[0] = np.sum(QF[0,:])
         QL[0] = QS[0] - QFall[0]
         for i in range(1, pts):
@@ -224,10 +225,10 @@ for k in range(0, K):
             QL[i] = QL[i-1] + (iL[i-1]-iG[i-1])*dt
             it[i-1] = np.sum(iF[i-1,:]) + iL[i-1]
             QS[i] = QS[i-1] + (it[i-1]-iG[i-1])*dt
-            if np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB, fill_value = "extrapolate")(QS[i])) > np.abs(np.max(V)):
+            if np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i])) > np.abs(V[i]) or np.isnan(np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i]))):
                 Vgs[i] = V[i]
             else:
-                Vgs[i] = scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB, fill_value = "extrapolate")(QS[i])
+                Vgs[i] = scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i])
             VF[i] = V[i] - Vgs[i]
         
 
@@ -306,8 +307,8 @@ for k in range(0, K):
             plt.close()
 
             #Id-VG Curve
-            plt.figure()
-            plt.semilogy(V, ID / A_MOS * 1e-12)
+            plt.figure()    
+            plt.semilogy(V[ID > 0], ID[ID > 0] / A_MOS * 1e-12)
             plt.xlabel("Voltage (V)")
             plt.ylabel(r"log(Current) $(A$ $\mu m^{-2})$")
             plt.title("Id-Vg Curve")
@@ -336,6 +337,16 @@ for k in range(0, K):
             plt.ylabel("Charge (C)")
             plt.title("All QF")
             plt.savefig(path + "/allQF")
+            plt.close()
+
+            plt.plot(rho)
+            plt.savefig(path + "/rand")
+            plt.close()
+
+            df = pd.DataFrame(rho)
+            df.to_csv("data.csv")
+
+            
         #plt.show()
 
         Qfinal1[k,j] = QFall[int(np.round((2*Twait+2*Trf+Tread)/dt))]/A_MFM
@@ -357,7 +368,6 @@ for k in range(0, K):
 
 ON_OFF_diff = IDmean1-IDmean2
 ON_OFF_ratio = IDmean1/IDmean2
-
 
 # plt.figure()
 # plt.plot(T_read, V_read, label = "V_read")

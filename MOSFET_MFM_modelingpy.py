@@ -8,10 +8,11 @@ import pandas as pd
 import scipy
 from scipy import stats
 import scipy.signal
-np.random.seed(1000000)
+np.random.seed(100)
 
 path = "./plots/test"
-iter = 0
+iter1 = 0
+iter2 = 0
 
 #Fundamental Constants
 q = 1.602177e-19           #Charge of electron in C
@@ -27,15 +28,15 @@ mu_n = 10*1e-4             # electron mobility in m^2/Vs
 eps_s = e0*11.9            # Permittivitsy of silicon in As/Vm
 
 #MOSFET parameters
-L = 1e-6                 # Gate length in m
-W = 1e-6                   # Gate width in m
+L = 100e-9                 # Gate length in m
+W = 100e-9                   # Gate width in m
 EOT = 1e-9                 # Equivalent gate oxide thickness in m
 VFB = -0.3                 # Flatband voltage in V
 VDS = 0.05                 # Drain-Source voltage in V
 iG0 = 10e4                 # MOS leakage current in A/m2 at VG = 1 V
 
 #MFM parameters
-A_MFM = (1e-6)**2          # Total MFM capacitor area in m^s2
+A_MFM = (100e-9)**2          # Total MFM capacitor area in m^s2
 d = 4.5e-9                 # Ferroelectric thickness in m
 Pr = 0.025                 # Remanent polarization in C/m2
 Ec = 0.9e8                 # Coercive field in V/m
@@ -44,7 +45,7 @@ rho_0 = 400                # Single domain internal resistance in Ohm m
 iL0 = 1.8e3                # MFM leakage current at VF = 0V in A/m2
 VL0 = 0.5                  # MFM leakage normalization voltage in V 
 Psign = -1                 # Initial polarization direction
-N = 200                    # Number of grains
+N = 10                    # Number of grains
 A = A_MFM/N                # Area of each grain in m^2
 
 Idatadf = pd.read_csv("_10x10um_cell3-13_IgVg_1e0.csv", header = 256)
@@ -93,6 +94,7 @@ gamma = d*a111/(A**5)       #3rd Landau constant in V/C^5
 for k in range(0, K):
     print(k)
     for j in range(0, J):
+        print(j)
         #Voltage Waveform
         Vread = 0.2 * (k + 1)                #Read voltage in V
         Vprg = 2                    #PRG voltage in V
@@ -104,7 +106,7 @@ for k in range(0, K):
         #T_total = 3e-6
 
         #Simulation parameters
-        Cp = 0e-12                     #Parasitic capacitance in F
+        Cp = 0e-14                     #Parasitic capacitance in F
         pts = 30000                     #Number of simulation points
         dt = T_total/pts                #Simulation time steps in s
         #Useful parameters
@@ -173,7 +175,7 @@ for k in range(0, K):
         #Sawtooth
         #V = 2 * scipy.signal.sawtooth(2 * np.pi * t * 1e6, 0.5)
 
-        if k == 0 and j == iter:
+        if k == iter and j == iter:
             plt.figure()
             plt.plot(t, V)
             plt.title("Voltage waveform")
@@ -225,10 +227,10 @@ for k in range(0, K):
             QL[i] = QL[i-1] + (iL[i-1]-iG[i-1])*dt
             it[i-1] = np.sum(iF[i-1,:]) + iL[i-1]
             QS[i] = QS[i-1] + (it[i-1]-iG[i-1])*dt
-            if np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i])) > np.abs(V[i]) or np.isnan(np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i]))):
+            if np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB, fill_value = "extrapolate")(QS[i])) > np.abs(V[i]) or np.isnan(np.abs(scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i]))):
                 Vgs[i] = V[i]
             else:
-                Vgs[i] = scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB)(QS[i])
+                Vgs[i] = scipy.interpolate.interp1d(Qps,Psi_S+Vox+VFB, fill_value = "extrapolate")(QS[i])
             VF[i] = V[i] - Vgs[i]
         
 
@@ -252,7 +254,7 @@ for k in range(0, K):
         #plt.show()
         plt.close()
         #Voltages over time     
-        if j == iter and k == iter:
+        if j == iter2 and k == iter1:
             plt.figure()
             plt.plot(t, V, label = "V")
             plt.plot(t, VF, label = r"$V_{F}$")
@@ -303,7 +305,7 @@ for k in range(0, K):
             plt.title("Charge over time")
             plt.legend()
             #plt.show()
-            plt.savefig(path + "/charge")
+            plt.savefig(path + "/charge")   
             plt.close()
 
             #Id-VG Curve
@@ -322,8 +324,7 @@ for k in range(0, K):
         # plt.title("Vgs P up")
         # plt.show()
 
-            for i in range(iF.shape[1]):
-                plt.plot(t, iF[:, i])
+            plt.plot(t, iF)
             plt.xlabel("Time (s)")
             plt.ylabel("Current (A)")
             plt.title("All iF")
@@ -331,19 +332,18 @@ for k in range(0, K):
             plt.close()
             #plt.show()
 
-            for i in range(QF.shape[1]):
-                plt.plot(t, QF[:, i])
+            plt.plot(t, QF)
             plt.xlabel("Time (s)")
             plt.ylabel("Charge (C)")
             plt.title("All QF")
             plt.savefig(path + "/allQF")
             plt.close()
 
-            plt.plot(rho)
+            plt.plot(Vint)
             plt.savefig(path + "/rand")
             plt.close()
 
-            df = pd.DataFrame(rho)
+            df = pd.DataFrame(Vint)
             df.to_csv("data.csv")
 
             

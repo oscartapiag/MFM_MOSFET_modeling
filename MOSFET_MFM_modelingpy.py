@@ -28,19 +28,42 @@ mu_n = 10*1e-4             # electron mobility in m^2/Vs
 eps_s = e0*11.9            # Permittivitsy of silicon in As/Vm
 
 #MOSFET parameters
-L = 100e-9                 # Gate length in m
-W = 100e-9                   # Gate width in m
+L = 1e-6                # Gate length in m
+W = 1e-6                   # Gate width in m
 EOT = 1e-9                 # Equivalent gate oxide thickness in m
 VFB = -0.3                 # Flatband voltage in V
 VDS = 0.05                 # Drain-Source voltage in V
-iG0 = 10e4                 # MOS leakage current in A/m2 at VG = 1 V
+A_MOS = L * W              # Total Gate area in m^2
+iG0 = 10e4
+
+#Useful parameters
+b = q/(k_B*T)                                        # Inverse thermal voltage in V^-1
+Psi_B = 1/b*np.log(N_A/n_i)                           # Onset of strong inversion in V
+p_p0 = ((N_A-N_D)+np.sqrt((N_A-N_D)**2+4*n_i**2))/2     # Equilibrium hole concentration in m^-3
+n_p0 = n_i**2/p_p0                                  # Equilibrium electron concentration in m^-3
+L_D = np.sqrt(eps_s/(q*p_p0*b))                       # Extrinsic Debye-length for holes in m                 
+Cox = 3.9*e0/EOT                            # Gate oxide capacitance in F/m2
+VT = VFB + 2*Psi_B + np.sqrt(2*eps_s*q*N_A*2*Psi_B)/Cox   # threshold voltage in V
+
+Psi_S = np.linspace(-0.7, 2, 1000)                #Semiconductor surface potential in V
+F = np.sqrt((np.exp(-b*Psi_S)+b*Psi_S-1)+n_p0/p_p0*np.exp(-b*VDS)*(np.exp(b*Psi_S)-b*Psi_S*np.exp(b*VDS)-1))*np.sign(Psi_S)
+Q_MOS = np.real(np.sqrt(2)*eps_s/b/L_D*F)       # Total charge at the surface of the semiconductor in C/m^2
+
+
+Cp = 0e-14                     #Parasitic capacitance in F
+Vox = Q_MOS/Cox                           # Voltage drop across the gate oxide in V
+Qp = (Psi_S+Vox)*Cp                    # Parasitic charge parallel to Gate capacitance in C
+Qps = Qp + Q_MOS*A_MOS                    # Sum of parasitic and Gate charge in C
+C_ox = np.diff(Q_MOS)/np.diff(Psi_S+Vox+VFB)   # Theoretical Gate capacitance in F/m2
+
+
 
 #MFM parameters
-A_MFM = (100e-9)**2          # Total MFM capacitor area in m^s2
+A_MFM = (1e-6)**2          # Total MFM capacitor area in m^s2
 d = 4.5e-9                 # Ferroelectric thickness in m
 Pr = 0.025                 # Remanent polarization in C/m2
 Ec = 0.9e8                 # Coercive field in V/m
-s = 0.2                     # Grain variation sigma/mu in %
+s = 0.2                     # Graxn variation sigma/mu in %
 rho_0 = 400                # Single domain internal resistance in Ohm m
 iL0 = 1.8e3                # MFM leakage current at VF = 0V in A/m2
 VL0 = 0.5                  # MFM leakage normalization voltage in V 
@@ -106,18 +129,8 @@ for k in range(0, K):
         #T_total = 3e-6
 
         #Simulation parameters
-        Cp = 0e-14                     #Parasitic capacitance in F
         pts = 30000                     #Number of simulation points
         dt = T_total/pts                #Simulation time steps in s
-        #Useful parameters
-        A_MOS = L*W                                        # Total Gate area in m^2
-        b = q/k_B/T                                        # Inverse thermal voltage in V^-1
-        Psi_B = 1/b*np.log(N_A/n_i)                           # Onset of strong inversion in V
-        p_p0 = ((N_A-N_D)+np.sqrt((N_A-N_D)**2+4*n_i**2))/2     # Equilibrium hole concentration in m^-3
-        n_p0 = n_i**2/p_p0                                  # Equilibrium electron concentration in m^-3
-        L_D = np.sqrt(eps_s/(q*p_p0*b))                       # Extrinsic Debye-length for holes in m                 
-        Cox = 3.9*8.854e-12/EOT                            # Gate oxide capacitance in F/m2
-        VT = VFB + 2*Psi_B + np.sqrt(2*eps_s*q*N_A*2*Psi_B)/Cox   # threshold voltage in V
 
         #Build voltage waveform
         V = np.zeros((pts,1))
@@ -185,18 +198,6 @@ for k in range(0, K):
             plt.close()
             # plt.show()
 
-
-        #Reference semiconductor charge vs. surface potential
-        Psi_S = np.arange(-2, 2 + 0.001, 0.001)                #Semiconductor surface potential in V
-        F = np.sqrt(np.abs((np.exp(-b*Psi_S)+b*Psi_S-1)+n_p0/p_p0*np.exp(-b*VDS)*(np.exp(b*Psi_S)-b*Psi_S*np.exp(b*VDS)-1)))*np.sign(Psi_S)
-        Qs = np.real(np.sqrt(2)*eps_s/b/L_D*F)       # Total charge at the surface of the semiconductor in C/m^2
-        Vox = Qs/Cox                           # Voltage drop across the gate oxide in V
-        Qp = (Psi_S+Vox)*Cp                    # Parasitic charge parallel to Gate capacitance in C
-        Qps = Qp + Qs*A_MOS                    # Sum of parasitic and Gate charge in C
-        C_ox = np.diff(Qs)/np.diff(Psi_S+Vox+VFB)   # Theoretical Gate capacitance in F/m2
-
-
-
         # Initializing simulation variables
         QF = np.zeros((pts,N), dtype=np.longdouble)
         QL = np.zeros((pts,1), dtype=np.longdouble)
@@ -245,9 +246,10 @@ for k in range(0, K):
         iMOS = it - iG
         Qp = Cp*Vgs
 
+
         #Semiconductor charge vs. surface potential (Slide 1)
         plt.figure()
-        plt.semilogy(Psi_S, np.abs(Qs) * 100)
+        plt.semilogy(Psi_S, np.abs(Q_MOS) * 100)
         plt.xlabel(r"$Psi_S$ (V)")
         plt.ylabel(r"$|Q_S|$ ($\frac{\mu C}{cm^2}$)")
         plt.title("Semiconductor Charge")

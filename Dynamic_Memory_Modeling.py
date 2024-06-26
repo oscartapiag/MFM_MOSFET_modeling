@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import scipy
 
-path = "./plots/ferroelectric_leakage/10Acm^-2/"
+path = "./plots/ferroelectric_leakage/20Acm^-2/"
 
 e_charge = scipy.constants.e    #C
 k_B = scipy.constants.k  # J/K
@@ -59,9 +59,6 @@ def Drain_current(V_GS_list, V_DS_list):
         if V_GS > V_TH:
             if V_DS > (V_GS - V_TH)/m:
                 V_DS = (V_GS - V_TH)/m
-            # I_D = W/L * mu_n * C_ox * ((V_GS - V_FB - 2*Psi_B - V_DS/2)*V_DS - 
-            #             2/3 * np.sqrt(2*epsilon_Si*e_charge*N_A)/C_ox* ((V_DS + 2*Psi_B)**1.5 - (2*Psi_B)**1.5) )
-            
             I_D = W/L * mu_n * C_ox * ((V_GS - V_TH - m*V_DS/2)*V_DS)
         else:
             # I_D = 0
@@ -69,6 +66,7 @@ def Drain_current(V_GS_list, V_DS_list):
                   np.exp( (V_GS-V_TH)/ beta_e / m) 
         I_D_list.append(I_D)
     return I_D_list
+
 #Ferroelectric Layer and Grain Parameters
 
 A_FE = (5e-6)*(0.75e-6)    # m^2
@@ -78,7 +76,7 @@ E_c = 0.9 * 1e6 / 1e-2    # coercive field V/m
 
 def FE_leak(V):
     #i_FE0 = 1.8e3 # MFM leakage current density at VF = 0V in A/m2
-    i_FE0 = 10e3
+    i_FE0 = 20e3
     V_FE0 = 0.5 # MFM leakage normalization voltage in V
     return  i_FE0* np.sign(V) * np.exp(np.abs(V)/ V_FE0 ) 
 

@@ -1,4 +1,6 @@
 #import
+#Credit to Michael Hoffman for developing this code
+
 import numpy as np
 import scipy.optimize as opt
 from scipy.interpolate import interp1d

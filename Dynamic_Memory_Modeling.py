@@ -3,8 +3,10 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
 import scipy
+import scipy.signal
+from waveforms import waveformGenerator
 
-path = "./plots/ferroelectric_leakage/20Acm^-2/"
+path = "./plots/test/"
 
 e_charge = scipy.constants.e    #C
 k_B = scipy.constants.k  # J/K
@@ -75,8 +77,7 @@ P_r = 2.5 * 1e-2 # remanent polarization C/m^2
 E_c = 0.9 * 1e6 / 1e-2    # coercive field V/m
 
 def FE_leak(V):
-    #i_FE0 = 1.8e3 # MFM leakage current density at VF = 0V in A/m2
-    i_FE0 = 20e3
+    i_FE0 = 1.8e3 # MFM leakage current density at VF = 0V in A/m2
     V_FE0 = 0.5 # MFM leakage normalization voltage in V
     return  i_FE0* np.sign(V) * np.exp(np.abs(V)/ V_FE0 ) 
 
@@ -93,6 +94,7 @@ def func_V_Q(Q):
     return 2*alpha*Q + 4*beta*Q**3
 
 Sim_steps = 100000
+gen = waveformGenerator()
 t_rise = 0.1
 t_write = 1 
 t_delay = 1
@@ -105,9 +107,10 @@ Waveform_voltage = np.array([0, 0, V_write, V_write, V_hold, V_hold])
 dt = max(Waveform_time) / Sim_steps
 Sim_time = np.linspace(0, max(Waveform_time), Sim_steps)
 V_input = np.interp(x = Sim_time, xp = Waveform_time, fp= Waveform_voltage)
+V_input = gen.pulses_constantVd(1e5, 0.05, 2.5, 1e-6, 2, 3e-6, 2e-6)[0]
 plt.figure()
-plt.plot(Waveform_time, Waveform_voltage, label = 'V_GS')
-# plt.plot(Sim_time, V_input, '^', label = 'V_GS')
+#plt.plot(Waveform_time, Waveform_voltage, label = 'V_GS')
+plt.plot(Sim_time, V_input, label = 'V_GS')
 plt.plot(Waveform_time, V_DS*np.ones(Waveform_voltage.shape), label = 'V_DS')
 plt.legend()
 plt.savefig(path+"Vgs+Vds")
@@ -151,6 +154,12 @@ for i in range(1, Sim_steps):
     V_GS[i] = np.interp(x = Q_MOS[i]/A_MOS, xp = Q_MOS_list, fp= V_MOS_list)
     V_FE[i] = V_input[i] - V_GS[i]  
 #MOSFET Drain Current Calculation
+# plt.figure()
+# #plt.plot(scipy.signal.stft(I_Leak)[2], color = "red")
+# #plt.plot(scipy.signal.stft(I - I_Gate_leak)[2], color = "blue")
+# plt.plot(scipy.signal.stft(I - I_Leak)[2], color = "green")
+# plt.show()
+# plt.close()
 I_D = np.array(Drain_current(V_GS,V_DS*np.ones(V_GS.shape)))
 
 #Plots
@@ -176,7 +185,7 @@ ax1.legend(loc=4)
 ax1.set_ylabel('Voltage(V)')
 ax1.set_xlabel('Time(s)')
 ax2 = ax1.twinx() # this is the important function
-ax2.plot(Sim_time, I_D,'-r',label="I_D")
+ax2.plot(Sim_time, np.abs(I_D),'-r',label="I_D")
 ax2.legend(loc=3)
 # ax2.set_xlim([0, np.e])
 ax2.set_ylabel('Current(A)')

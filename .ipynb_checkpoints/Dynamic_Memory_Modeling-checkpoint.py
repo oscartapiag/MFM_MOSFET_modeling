@@ -6,7 +6,7 @@ import scipy
 import scipy.signal
 from waveforms import waveformGenerator
 
-path = "./plots/FE-t/1nm/"
+path = "./plots/test/"
 
 e_charge = scipy.constants.e    #C
 k_B = scipy.constants.k  # J/K
@@ -28,7 +28,7 @@ L = 1e-6 # Gate length in m
 W = 1e-6 # Gate width in m
 EOT = 1e-9 # Oxide thickness in m
 V_FB = -0.3 # flat band voltage in V
-VDS = 0.05 # drain-source voltage in V
+V_DS = 0.05 # drain-source voltage in V
 
 A_MOS = L*W # MOS cap area
 Psi_B = 1/beta_e * np.log(N_A/n_i) # Onset of strong inversion in V
@@ -38,10 +38,10 @@ L_D = np.sqrt(epsilon_Si/(e_charge * p_p0 * beta_e)) # % Extrinsic Debye-length 
 C_ox = 3.9*epsilon_0/EOT # Gate oxide capacitance per area in F/m^2
 V_TH = V_FB + 2*Psi_B + np.sqrt(2*epsilon_Si* e_charge * N_A *2*Psi_B)/(C_ox) # threshold voltage in V
 
-def F_func(Psi_S, V_ds = VDS):
+def F_func(Psi_S, V_ds = V_DS):
     return np.sqrt((np.exp(-beta_e *Psi_S)+ beta_e*Psi_S -1) + n_p0/p_p0*np.exp(-beta_e *V_ds) *
                    (np.exp( beta_e *Psi_S)- beta_e*Psi_S* np.exp(beta_e*V_ds)-1))*np.sign(Psi_S)
-def Func_Q_MOS(Psi_S, V_ds=VDS): # Total charge density at the surface of the semiconductor in C/m^2
+def Func_Q_MOS(Psi_S, V_ds=V_DS): # Total charge density at the surface of the semiconductor in C/m^2
     return np.real(np.sqrt(2)* epsilon_Si /beta_e /L_D * F_func(Psi_S, V_ds))
 
 plt.figure()
@@ -93,7 +93,7 @@ rho = rho_0 * np.abs(np.random.normal(1, 0, N_domain)) * d_FE / A_FE * N_domain
 def func_V_Q(Q):
     return 2*alpha*Q + 4*beta*Q**3
 
-Sim_steps = int(1e5)
+Sim_steps = 100000
 gen = waveformGenerator()
 t_rise = 0.1
 t_write = 1 
@@ -105,18 +105,13 @@ V_hold = 0.0
 Waveform_time = 1e-6 * np.cumsum([0, 1, t_rise, t_write, t_rise, t_delay])
 Waveform_voltage = np.array([0, 0, V_write, V_write, V_hold, V_hold])
 dt = max(Waveform_time) / Sim_steps
-# Sim_time = np.linspace(0, max(Waveform_time), Sim_steps)
-print(dt)
-# V_input = np.interp(x = Sim_time, xp = Waveform_time, fp= Waveform_voltage)
-V_input, V_DS, t_total = gen.pulses_constantVd(Sim_steps, VDS, 2.5, 1e-6, 2, 3e-6, 2e-6)
-Sim_time = np.linspace(0, t_total, Sim_steps)
-# dt = t_total / Sim_steps
-# print(dt)
+Sim_time = np.linspace(0, max(Waveform_time), Sim_steps)
+V_input = np.interp(x = Sim_time, xp = Waveform_time, fp= Waveform_voltage)
+V_input = gen.pulses_constantVd(1e5, 0.05, 2.5, 1e-6, 2, 3e-6, 2e-6)[0]
 plt.figure()
 #plt.plot(Waveform_time, Waveform_voltage, label = 'V_GS')
 plt.plot(Sim_time, V_input, label = 'V_GS')
-#plt.plot(Waveform_time, V_DS*np.ones(Waveform_voltage.shape), label = 'V_DS')
-plt.plot(Sim_time, V_DS, label = "V_DS")
+plt.plot(Waveform_time, V_DS*np.ones(Waveform_voltage.shape), label = 'V_DS')
 plt.legend()
 plt.savefig(path+"Vgs+Vds")
 plt.close()
@@ -165,7 +160,7 @@ for i in range(1, Sim_steps):
 # plt.plot(scipy.signal.stft(I - I_Leak)[2], color = "green")
 # plt.show()
 # plt.close()
-I_D = np.array(Drain_current(V_GS,V_DS))
+I_D = np.array(Drain_current(V_GS,V_DS*np.ones(V_GS.shape)))
 
 #Plots
 plt.figure(figsize=(14,9))
@@ -174,7 +169,6 @@ plt.plot(Sim_time, V_input, '-', label = 'V_input')
 plt.plot(Sim_time, V_FE, '-', label = 'V_FE')
 plt.plot(Sim_time, V_GS, '-', label = 'V_GS')
 plt.hlines(V_TH, xmin=Sim_time[0], xmax=Sim_time[-1], linestyles='--', colors='r', label='V_TH')
-plt.plot(Sim_time, V_DS, "--", label = "V_DS", color = "yellow")
 plt.xlabel('Time(s)')
 plt.ylabel('Voltage (V)')
 plt.legend()
@@ -191,8 +185,7 @@ ax1.legend(loc=4)
 ax1.set_ylabel('Voltage(V)')
 ax1.set_xlabel('Time(s)')
 ax2 = ax1.twinx() # this is the important function
-ax2.plot(Sim_time, np.abs(I_D),'-r',label="|I_D|")
-ax1.plot(Sim_time, V_DS, "--", color = "yellow", label = "V_DS")
+ax2.plot(Sim_time, np.abs(I_D),'-r',label="I_D")
 ax2.legend(loc=3)
 # ax2.set_xlim([0, np.e])
 ax2.set_ylabel('Current(A)')

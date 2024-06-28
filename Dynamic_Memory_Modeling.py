@@ -79,7 +79,7 @@ E_c = 0.9 * 1e6 / 1e-2    # coercive field V/m
 def FE_leak(V):
     i_FE0 = 1.8e3 # MFM leakage current density at VF = 0V in A/m2
     V_FE0 = 0.5 # MFM leakage normalization voltage in V
-    return  i_FE0* np.sign(V) * np.exp(np.abs(V)/ V_FE0 ) 
+    return i_FE0* np.sign(V) * np.exp(np.abs(V)/ V_FE0 ) 
 
 N_domain = 10
 rho_0 = 400 # Single domain internal resistivitsy in Ohm*m

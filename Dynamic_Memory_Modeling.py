@@ -6,7 +6,7 @@ import scipy
 import scipy.signal
 from waveforms import waveformGenerator
 
-path = "./plots/FE-t/1nm/"
+path = "./plots/threshold_voltage/0.8V/"
 
 e_charge = scipy.constants.e    #C
 k_B = scipy.constants.k  # J/K
@@ -36,7 +36,8 @@ p_p0 = ( (N_A-N_D)+ np.sqrt((N_A-N_D)**2 + 4*n_i**2) )/2 # Equilibrium hole conc
 n_p0 = n_i**2/p_p0 # Equilibrium electron concentration in m^-3
 L_D = np.sqrt(epsilon_Si/(e_charge * p_p0 * beta_e)) # % Extrinsic Debye-length for holes in m
 C_ox = 3.9*epsilon_0/EOT # Gate oxide capacitance per area in F/m^2
-V_TH = V_FB + 2*Psi_B + np.sqrt(2*epsilon_Si* e_charge * N_A *2*Psi_B)/(C_ox) # threshold voltage in V
+#V_TH = V_FB + 2*Psi_B + np.sqrt(2*epsilon_Si* e_charge * N_A *2*Psi_B)/(C_ox) # threshold voltage in V
+V_TH = 0.8
 
 def F_func(Psi_S, V_ds = VDS):
     return np.sqrt((np.exp(-beta_e *Psi_S)+ beta_e*Psi_S -1) + n_p0/p_p0*np.exp(-beta_e *V_ds) *

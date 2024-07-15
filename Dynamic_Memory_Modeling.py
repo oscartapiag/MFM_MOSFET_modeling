@@ -6,7 +6,7 @@ import scipy
 import scipy.signal
 from waveforms import waveformGenerator
 
-path = "./plots/threshold_voltage/0.8V/"
+path = "./plots/test/"  
 
 e_charge = scipy.constants.e    #C
 k_B = scipy.constants.k  # J/K
@@ -25,7 +25,7 @@ epsilon_Si = epsilon_0*11.9            # Permittivity of silicon in As/Vm
 
 # MOSFET
 L = 1e-6 # Gate length in m
-W = 1e-6 # Gate width in m
+W = 2e-6 # Gate width in m
 EOT = 1e-9 # Oxide thickness in m
 V_FB = -0.3 # flat band voltage in V
 VDS = 0.05 # drain-source voltage in V
@@ -36,8 +36,7 @@ p_p0 = ( (N_A-N_D)+ np.sqrt((N_A-N_D)**2 + 4*n_i**2) )/2 # Equilibrium hole conc
 n_p0 = n_i**2/p_p0 # Equilibrium electron concentration in m^-3
 L_D = np.sqrt(epsilon_Si/(e_charge * p_p0 * beta_e)) # % Extrinsic Debye-length for holes in m
 C_ox = 3.9*epsilon_0/EOT # Gate oxide capacitance per area in F/m^2
-#V_TH = V_FB + 2*Psi_B + np.sqrt(2*epsilon_Si* e_charge * N_A *2*Psi_B)/(C_ox) # threshold voltage in V
-V_TH = 0.8
+V_TH = V_FB + 2*Psi_B + np.sqrt(2*epsilon_Si* e_charge * N_A *2*Psi_B)/(C_ox) # threshold voltage in V
 
 def F_func(Psi_S, V_ds = VDS):
     return np.sqrt((np.exp(-beta_e *Psi_S)+ beta_e*Psi_S -1) + n_p0/p_p0*np.exp(-beta_e *V_ds) *
@@ -72,13 +71,14 @@ def Drain_current(V_GS_list, V_DS_list):
 
 #Ferroelectric Layer and Grain Parameters
 
-A_FE = (5e-6)*(0.75e-6)    # m^2
+#A_FE = (5e-6)*(0.75e-6)    # m^2
+A_FE = (5e-6) * (1e-6 - 100e-9)
 d_FE = 4.5e-9   # m
 P_r = 2.5 * 1e-2 # remanent polarization C/m^2
 E_c = 0.9 * 1e6 / 1e-2    # coercive field V/m
 
 def FE_leak(V):
-    i_FE0 = 1.8e3 # MFM leakage current density at VF = 0V in A/m2
+    i_FE0 = 1.8e3 # MFM leakage current density at VF = 0V in A/m2\
     V_FE0 = 0.5 # MFM leakage normalization voltage in V
     return i_FE0* np.sign(V) * np.exp(np.abs(V)/ V_FE0 ) 
 
@@ -100,16 +100,16 @@ t_rise = 0.1
 t_write = 1 
 t_delay = 1
 t_read = 3
-V_write = 2
-V_read = 2
+V_write = 1.6
+V_read = 2.4
 V_hold = 0.0
 Waveform_time = 1e-6 * np.cumsum([0, 1, t_rise, t_write, t_rise, t_delay])
 Waveform_voltage = np.array([0, 0, V_write, V_write, V_hold, V_hold])
 dt = max(Waveform_time) / Sim_steps
 # Sim_time = np.linspace(0, max(Waveform_time), Sim_steps)
-print(dt)
+#print(dt)
 # V_input = np.interp(x = Sim_time, xp = Waveform_time, fp= Waveform_voltage)
-V_input, V_DS, t_total = gen.pulses_constantVd(Sim_steps, VDS, 2.5, 1e-6, 2, 3e-6, 2e-6)
+V_input, V_DS, t_total, dT = gen.pulses_constantVd(Sim_steps, VDS, V_write, 1e-6, V_read, 3e-6, 2e-6)
 Sim_time = np.linspace(0, t_total, Sim_steps)
 # dt = t_total / Sim_steps
 # print(dt)
@@ -126,6 +126,10 @@ V_GS = np.zeros(Sim_steps)
 Psi_Si_list = np.linspace(-0.4,1.7,500)
 Q_MOS_list = Func_Q_MOS(Psi_S=Psi_Si_list)
 V_MOS_list = Psi_Si_list + Q_MOS_list/C_ox + V_FB
+Cp = 0e-12                     #Parasitic capacitance in F
+Qp = (Psi_Si_list+Q_MOS_list/C_ox)*Cp                    # Parasitic charge parallel to Gate capacitance in C
+Qps = Qp/A_MOS + Q_MOS_list                    # Sum of parasitic and Gate charge in C
+
 
 I = np.zeros(Sim_steps)
 I_Leak = np.zeros(Sim_steps)
@@ -144,7 +148,7 @@ Q_0 = np.sqrt(-alpha/beta/2) # charge on every domain interface
 P_sign = -1
 Q_FE[0, :] = Q_0 * P_sign
 Q_FE_tot[0] = np.sum(Q_FE[0, :])
-Q_MOS[0] = np.interp(x = 0, xp = V_MOS_list, fp= Q_MOS_list)* A_MOS
+Q_MOS[0] = np.interp(x = 0, xp = V_MOS_list, fp= Qps)* A_MOS
 Q_Leak[0] = Q_MOS[0] - Q_FE_tot[0]
 
 for i in range(1, Sim_steps):
@@ -157,15 +161,18 @@ for i in range(1, Sim_steps):
     Q_Leak[i] = Q_Leak[i-1] + (I_Leak[i-1] - I_Gate_leak[i-1]) *dt
     I[i-1] = np.sum(I_FE[i-1,:]) + I_Leak[i-1]
     Q_MOS[i] = Q_MOS[i-1] + (I[i-1] - I_Gate_leak[i-1])*dt
-    V_GS[i] = np.interp(x = Q_MOS[i]/A_MOS, xp = Q_MOS_list, fp= V_MOS_list)
+    V_GS[i] = np.interp(x = Q_MOS[i]/A_MOS, xp = Qps, fp= V_MOS_list)
     V_FE[i] = V_input[i] - V_GS[i]  
-#MOSFET Drain Current Calculation
+
 # plt.figure()
-# #plt.plot(scipy.signal.stft(I_Leak)[2], color = "red")
-# #plt.plot(scipy.signal.stft(I - I_Gate_leak)[2], color = "blue")
-# plt.plot(scipy.signal.stft(I - I_Leak)[2], color = "green")
+# plt.semilogx(scipy.fft.fft(I_Leak), color = "red", label = "I_FE_Leak")
+# plt.semilogx(scipy.fft.fft(I_Gate_leak), color = "blue", label = "I_Gate_Leak")
+# plt.semilogx(scipy.fft.fft(I - I_Leak), color = "green", label = "I_FE")
+# plt.legend()
 # plt.show()
 # plt.close()
+
+#MOSFET Drain Current Calculation
 I_D = np.array(Drain_current(V_GS,V_DS))
 
 #Plots
